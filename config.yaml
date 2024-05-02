@@ -1,0 +1,8 @@
+data_path: data/test_set.csv
+column_names: ['title', 'body']
+target_column: 'label'
+template_path: templates/template.yaml
+prompts_path: data/prompts.json
+responses_dir: responses
+model_name: model_name
+
