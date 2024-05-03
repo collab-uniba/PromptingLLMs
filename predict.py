@@ -44,7 +44,7 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
             output_tokenized = output_tokenized[len(prompt_tokenized["input_ids"][0]):]
 
             # Store outputs and number of tokens in results{}
-            results["outputs"][prompt_id](tokenizer.decode(output_tokenized))
+            results["outputs"][prompt_id] = (tokenizer.decode(output_tokenized))
             results["num_tokens"] += len(output_tokenized)
 
         results = [results]  # Transform to list, otherwise gather_object() will not collect correctly
