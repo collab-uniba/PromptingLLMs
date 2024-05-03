@@ -14,6 +14,7 @@ def load_prompts(prompts_path, responses=None):
         prompts = json.load(file)
     if responses:
         prompts = {k: v for k, v in prompts.items() if k not in responses}
+    return prompts
 
 def load_responses(responses_path):
     if os.path.exists(responses_path):
@@ -36,7 +37,7 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
         # Have each GPU do inference, prompt by prompt
         # prompts is a dict with keys as prompt ids and values as prompts
         for prompt_id, prompt in prompts.items():
-            prompt_tokenized = tokenizer(prompt, return_tensors="pt").to("cuda")
+            prompt_tokenized = tokenizer(prompt['prompt'], return_tensors="pt").to("cuda")
             output_tokenized = model.generate(**prompt_tokenized, max_new_tokens=500)[0]
 
             # Remove prompt from output 
