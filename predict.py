@@ -19,8 +19,11 @@ def load_prompts(prompts_path, responses=None):
         prompts = {k: v for k, v in prompts.items() if k not in responses}
 
 def load_responses(responses_path):
-    with open(responses_path, 'r') as file:
-        responses = json.load(file)
+    if os.path.exists(responses_path):
+        with open(responses_path, 'r') as file:
+            responses = json.load(file)
+    else:
+        responses = {}
     return responses
 
 def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
@@ -31,10 +34,11 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
     # Divide the prompt list onto the available GPUs 
     with accelerator.split_between_processes(prompts_all) as prompts:
         # Store output of generations in dict
-        results = dict(outputs=[], num_tokens=0)
+        results = dict(outputs={}, num_tokens=0)
 
         # Have each GPU do inference, prompt by prompt
-        for prompt in prompts:
+        # prompts is a dict with keys as prompt ids and values as prompts
+        for prompt_id, prompt in prompts.items():
             prompt_tokenized = tokenizer(prompt, return_tensors="pt").to("cuda")
             output_tokenized = model.generate(**prompt_tokenized, max_new_tokens=500)[0]
 
@@ -42,7 +46,7 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
             output_tokenized = output_tokenized[len(prompt_tokenized["input_ids"][0]):]
 
             # Store outputs and number of tokens in results{}
-            results["outputs"].append(tokenizer.decode(output_tokenized))
+            results["outputs"][prompt_id](tokenizer.decode(output_tokenized))
             results["num_tokens"] += len(output_tokenized)
 
         results = [results]  # Transform to list, otherwise gather_object() will not collect correctly
@@ -55,8 +59,59 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
         num_tokens = sum([r["num_tokens"] for r in results_gathered])
 
         logger.info(f"tokens/sec: {num_tokens // timediff}, time {timediff}, total tokens {num_tokens}, total prompts {len(prompts_all)}")
-    return results_gathered
+    return results_gathered[0]
 
 def save_responses(responses, responses_path):
     with open(responses_path, 'w') as file:
         json.dump(responses, file, indent=4)
+
+logger.add("predict.log")
+
+config_path = "config.yaml"
+with open(config_path, 'r') as file:
+    config = yaml.safe_load(file)
+
+accelerator = Accelerator()
+nf4_config = BitsAndBytesConfig(
+   load_in_4bit=True,
+   bnb_4bit_quant_type="nf4",
+   bnb_4bit_use_double_quant=True,
+   bnb_4bit_compute_dtype=torch.bfloat16
+)
+
+logger.info(f"Using model: {config['model_name']}")
+logger.info(f"Loding model and tokenizer")
+
+tokenizer = AutoTokenizer.from_pretrained(config["model_name"])
+model = AutoModelForCausalLM.from_pretrained(
+    config["model_name"],    
+    device_map={"": accelerator.process_index},
+    torch_dtype=torch.bfloat16,
+    quantization_config=nf4_config
+)
+
+logger.info(f"Model and tokenizer loaded")
+
+responses_dir = os.path.join(*[config["responses_dir"], config["model_name"]])
+os.makedirs(responses_dir, exist_ok=True)
+
+responses_path = os.path.join(responses_dir, "responses.json")
+
+responses = load_responses(responses_path)
+prompts = load_prompts(config["prompts_path"], responses)
+
+logger.info(f"Loaded {len(prompts)} prompts")
+
+logger.info("Starting inference")
+
+results = process_prompts(accelerator, tokenizer, model, prompts, logger)
+
+logger.info("Inference complete")
+
+for prompt_id, response in results['outputs'].items():
+    responses[prompt_id] = response
+
+logger.info(f"Saving responses to {responses_path}")
+save_responses(responses, responses_path)
+
+
