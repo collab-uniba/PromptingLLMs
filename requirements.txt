@@ -7,3 +7,4 @@ torch
 pandas
 tqdm
 loguru
+huggingface-hub[cli]
