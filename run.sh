@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -A IscrC_LLM4SE
 #SBATCH -p boost_usr_prod
-#SBATCH --qos boost_qos_dbg
-#SBATCH --time 0-00:30:00
+#SBATCH --qos boost_qos_lprod
+#SBATCH --time 0-01:30:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
