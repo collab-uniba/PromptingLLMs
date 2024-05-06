@@ -8,3 +8,5 @@ pandas
 tqdm
 loguru
 huggingface-hub[cli]
+scikit-learn
+openpyxl
