@@ -2,8 +2,9 @@ import os
 import json
 import re
 import yaml
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from sklearn.metrics import classification_report
+import pandas as pd
 import sys
 
 sys.path.append('externals/sklearn-cls-report2excel')
@@ -28,10 +29,14 @@ def get_model_name(response_path):
 
 def get_label(text):
     try:
-        label = re.search(r"(:?\\\"|\")label(:?\\\"|\"):\s*(:?\\\"|\")(bug|feature|documentation|question)(:?\\\"|\")", text, flags=re.DOTALL)[4]
+        label = text['label']
         return label
-    except Exception:
-        return ""
+    except:
+        try:
+            label = re.search(r"(:?\\\"|\")label(:?\\\"|\"):\s*(:?\\\"|\")(bug|feature|documentation|question)(:?\\\"|\")", text, flags=re.DOTALL)[4]
+            return label
+        except Exception:
+            return ""
 
 
 def get_predictions(response_path):
@@ -90,7 +95,3 @@ with open(config_path, 'r') as file:
 prompts_path = config["prompts_path"]
 metrics = evaluate_model(responses_dir, prompts_path)
 create_excel_table(metrics, responses_dir)
-
-
-        
-
