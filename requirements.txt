@@ -10,3 +10,4 @@ loguru
 huggingface-hub[cli]
 scikit-learn
 openpyxl
+openai
