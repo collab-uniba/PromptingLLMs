@@ -31,14 +31,14 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger, response
     start = time.time()
 
     num_batches = ceil(len(prompts_all) / save_every)
-
+    results = dict(outputs={}, num_tokens=0)
     keys = list(prompts_all.keys())
     for batch_idx in range(num_batches):
         start_idx = batch_idx * save_every
         end_idx = start_idx + save_every
         batch_ids = keys[start_idx:end_idx]
         batch_prompts = {k: prompts_all[k] for k in batch_ids}
-        results = dict(outputs={}, num_tokens=0)
+        results = dict(outputs={}, num_tokens=results[num_tokens])
 
         # Divide the prompt list onto the available GPUs 
         with accelerator.split_between_processes(batch_prompts) as prompts:
