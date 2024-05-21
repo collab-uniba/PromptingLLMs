@@ -8,6 +8,7 @@ import yaml
 import json
 import os
 import time
+from math import ceil
 
 def load_prompts(prompts_path, responses=None):
     with open(prompts_path, 'r') as file:
@@ -24,33 +25,42 @@ def load_responses(responses_path):
         responses = {}
     return responses
 
-def process_prompts(accelerator, tokenizer, model, prompts_all, logger):
+def process_prompts(accelerator, tokenizer, model, prompts_all, logger, responses, responses_path, save_every=32):
     # Sync GPUs and start the timer
     accelerator.wait_for_everyone()
     start = time.time()
 
-    # Divide the prompt list onto the available GPUs 
-    with accelerator.split_between_processes(prompts_all) as prompts:
-        # Store output of generations in dict
-        results = dict(outputs={}, num_tokens=0)
+    num_batches = ceil(len(prompts_all) / save_every)
 
-        # Have each GPU do inference, prompt by prompt
-        # prompts is a dict with keys as prompt ids and values as prompts
-        for prompt_id, prompt in prompts.items():
-            prompt_tokenized = tokenizer(prompt['prompt'], return_tensors="pt").to("cuda")
-            output_tokenized = model.generate(**prompt_tokenized, max_new_tokens=500)[0]
+    results = dict(outputs={}, num_tokens=0)
 
-            # Remove prompt from output 
-            output_tokenized = output_tokenized[len(prompt_tokenized["input_ids"][0]):]
+    for batch_idx in range(num_batches):
+        start_idx = batch_idx * save_every
+        end_idx = start_idx + save_every
+        batch_prompts = prompts_all[start_idx:end_idx]
 
-            # Store outputs and number of tokens in results{}
-            results["outputs"][prompt_id] = (tokenizer.decode(output_tokenized))
-            results["num_tokens"] += len(output_tokenized)
+        # Divide the prompt list onto the available GPUs 
+        with accelerator.split_between_processes(batch_prompts) as prompts:
+            # Have each GPU do inference, prompt by prompt
+            # prompts is a dict with keys as prompt ids and values as prompts
+            for prompt_id, prompt in prompts.items():
+                prompt_tokenized = tokenizer(prompt['prompt'], return_tensors="pt").to("cuda")
+                output_tokenized = model.generate(**prompt_tokenized, max_new_tokens=500)[0]
 
-        results = [results]  # Transform to list, otherwise gather_object() will not collect correctly
+                # Remove prompt from output 
+                output_tokenized = output_tokenized[len(prompt_tokenized["input_ids"][0]):]
 
-    # Collect results from all the GPUs
-    results_gathered = gather_object(results)
+                # Store outputs and number of tokens in results{}
+                results["outputs"][prompt_id] = (tokenizer.decode(output_tokenized))
+                results["num_tokens"] += len(output_tokenized)
+
+            results = [results]  # Transform to list, otherwise gather_object() will not collect correctly
+
+        # Collect results from all the GPUs
+        results_gathered = gather_object(results)
+        for prompt_id, response in results_gathered[0]['outputs'].items():
+            responses[prompt_id] = response
+        save_responses(responses, responses_path)
 
     if accelerator.is_main_process:
         timediff = time.time() - start
@@ -102,12 +112,9 @@ logger.info(f"Loaded {len(prompts)} prompts")
 
 logger.info("Starting inference")
 
-results = process_prompts(accelerator, tokenizer, model, prompts, logger)
+results = process_prompts(accelerator, tokenizer, model, prompts, logger, responses, responses_path)
 
 logger.info("Inference complete")
-
-for prompt_id, response in results['outputs'].items():
-    responses[prompt_id] = response
 
 logger.info(f"Saving responses to {responses_path}")
 save_responses(responses, responses_path)
