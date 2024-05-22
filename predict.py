@@ -38,7 +38,6 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger, response
         end_idx = start_idx + save_every
         batch_ids = keys[start_idx:end_idx]
         batch_prompts = {k: prompts_all[k] for k in batch_ids}
-        results = dict(outputs={}, num_tokens=results["num_tokens"])
 
         # Divide the prompt list onto the available GPUs 
         with accelerator.split_between_processes(batch_prompts) as prompts:
@@ -62,6 +61,9 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger, response
         for prompt_id, response in results_gathered[0]['outputs'].items():
             responses[prompt_id] = response
         save_responses(responses, responses_path)
+
+        # Free up results and save number of tokens
+        results = dict(outputs={}, num_tokens=results_gathered[0]["num_tokens"])
 
     if accelerator.is_main_process:
         timediff = time.time() - start
