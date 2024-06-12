@@ -19,8 +19,8 @@ def load_prompt_template(template_path):
     return template
 
 def craft_prompt(template, replacements):
-    task_prompt = replace_placeholders(template['task'], replacements)
-    return '\n'.join([task_prompt, template['label_explanations'], template['format_instructions'], template['output']])
+    example = replace_placeholders(template['example'], replacements)
+    return '\n'.join([template['task'], template['label_explanations'], template['format_instructions'], example, template['output']])
 
 # Replace placeholders in a template string with values from the dataset
 def replace_placeholders(template, replacements):
