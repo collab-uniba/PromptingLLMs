@@ -11,3 +11,5 @@ huggingface-hub[cli]
 scikit-learn
 openpyxl
 openai
+sentencepiece
+protobuf
