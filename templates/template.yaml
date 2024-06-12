@@ -1,7 +1,7 @@
 task: |
   You are provided with a GitHub issue in this format:
-  Title: "{title}"
-  Body: "{body}"
+  Title: """the title of the issue"""
+  Body: """the body of the issue"""
   
   You have to assign it a label.
   Possible labels are: "bug", "feature", "question", "documentation"
@@ -21,5 +21,10 @@ format_instructions: |
       "label": "string"  // The label to assign to the issue. Possible labels are: "bug", "feature", "question", "documentation
   }
   ```
+
+example: |
+  Title: """{title}"""
+  Body: """{body}"""
+
 output: |
   Output:
