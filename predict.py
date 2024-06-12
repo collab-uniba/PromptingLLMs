@@ -1,6 +1,7 @@
 
 from loguru import logger
 import torch
+from torch.cuda import OutOfMemoryError
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from accelerate import Accelerator
 from accelerate.utils import gather_object
@@ -45,14 +46,17 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger, response
             # prompts is a dict with keys as prompt ids and values as prompts
             for prompt_id, prompt in prompts.items():
                 prompt_tokenized = tokenizer(prompt['prompt'], return_tensors="pt").to("cuda")
-                output_tokenized = model.generate(**prompt_tokenized, max_new_tokens=500)[0]
+                try:
+                    output_tokenized = model.generate(**prompt_tokenized, max_new_tokens=500)[0]
 
-                # Remove prompt from output 
-                output_tokenized = output_tokenized[len(prompt_tokenized["input_ids"][0]):]
+                    # Remove prompt from output 
+                    output_tokenized = output_tokenized[len(prompt_tokenized["input_ids"][0]):]
 
-                # Store outputs and number of tokens in results{}
-                results["outputs"][prompt_id] = (tokenizer.decode(output_tokenized))
-                results["num_tokens"] += len(output_tokenized)
+                    # Store outputs and number of tokens in results{}
+                    results["outputs"][prompt_id] = (tokenizer.decode(output_tokenized))
+                    results["num_tokens"] += len(output_tokenized)
+                except OutOfMemoryError as e:
+                    print(f"skipping sample {prompt_id}")
 
             results = [results]  # Transform to list, otherwise gather_object() will not collect correctly
 
@@ -64,6 +68,11 @@ def process_prompts(accelerator, tokenizer, model, prompts_all, logger, response
 
         # Free up results and save number of tokens
         results = dict(outputs={}, num_tokens=results_gathered[0]["num_tokens"])
+        timediff = time.time() - start
+        num_tokens = sum([r["num_tokens"] for r in results_gathered])
+
+        logger.info(f"tokens/sec: {num_tokens // timediff}, time {timediff}, total tokens {num_tokens}, total prompts {len(prompts_all)}")
+
 
     if accelerator.is_main_process:
         timediff = time.time() - start
@@ -81,6 +90,13 @@ logger.add("predict.log")
 config_path = "config.yaml"
 with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
+
+# Open slurm script and log it
+with open("run.sh", 'r') as file:
+    slurm_script = file.read()
+
+logger.info(f"Slurm script: {slurm_script}")
+
 
 accelerator = Accelerator()
 nf4_config = BitsAndBytesConfig(
