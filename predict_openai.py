@@ -4,6 +4,7 @@ import json
 import os
 from loguru import logger
 import time
+import yaml
 
 def load_prompts(prompts_path, responses=None):
     with open(prompts_path, 'r') as file:
@@ -71,8 +72,13 @@ client = OpenAI(
   project='proj_bFDwVo6cD5P3jIUaZMYkx18f',
 )
 
-prompts_path = 'data/prompts.json'
-responses_dir = os.path.join(*['responses', 'OpenAI', MODEL_NAME])
+# load yaml config
+with open("config.yaml", 'r') as file:
+    config = yaml.load(file, Loader=yaml.FullLoader)
+
+prompts_path = config['prompts_path']
+responses_dir = config['responses_dir']
+responses_dir = os.path.join(*[responses_dir, 'OpenAI', MODEL_NAME])
 os.makedirs(responses_dir, exist_ok=True)
 
 responses_path = os.path.join(responses_dir, "responses.json")
