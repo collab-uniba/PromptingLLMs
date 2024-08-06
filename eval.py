@@ -60,6 +60,13 @@ def get_true_labels(prompts_path):
 def evaluate_model(responses_dir, prompts_path):
     response_paths = get_response_paths(responses_dir)
     true_labels = get_true_labels(prompts_path)
+    
+    # find unique labels in true_labels
+    labels = []
+    for prompt_id, true_label in true_labels.items():
+        if true_label not in labels:
+            labels.append(true_label)
+
     metrics = {}
     for response_path in response_paths:
         model_name = get_model_name(response_path)
@@ -69,8 +76,11 @@ def evaluate_model(responses_dir, prompts_path):
         y_pred = []
         for prompt_id, true_label in true_labels.items():
             y_true.append(true_label)
-            y_pred.append(predictions[prompt_id])
-        report = classification_report(y_true, y_pred, labels=['bug', 'documentation', 'feature', 'question'], output_dict=True)
+            try:
+                y_pred.append(predictions[prompt_id])
+            except:
+                y_pred.append("")
+        report = classification_report(y_true, y_pred, labels=labels, output_dict=True)
         metrics[model_name] = report
     return metrics
 
@@ -88,10 +98,10 @@ def create_excel_table(metrics, output_path):
     wb.save(os.path.join(output_path, "report.xlsx"))
 
 
-responses_dir = "responses"
 config_path = "config.yaml"
 with open(config_path, 'r') as file:
     config = yaml.safe_load(file)
 prompts_path = config["prompts_path"]
+responses_dir = config["responses_dir"]
 metrics = evaluate_model(responses_dir, prompts_path)
 create_excel_table(metrics, responses_dir)

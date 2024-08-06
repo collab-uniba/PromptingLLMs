@@ -3,6 +3,7 @@
 
 data/*
 !data/.keep
+responses/*
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
