@@ -65,11 +65,11 @@ def process_prompts(responses_path, prompts, logger):
 TEMPERATURE = 0.0
 MODEL_NAME = 'gpt-4-turbo'
 
-os.environ["OPENAI_API_KEY"] = "sk-proj-ACoBL2qoXFxDPq0hRoeFT3BlbkFJu43Cm8sDtKM9TakagFRA"
+os.environ["OPENAI_API_KEY"] = "KEY"
 
 client = OpenAI(
-  organization='org-vEijKmj1E9SRyolQlQov9fko',
-  project='proj_bFDwVo6cD5P3jIUaZMYkx18f',
+  organization='ID',
+  project='ID',
 )
 
 # load yaml config
